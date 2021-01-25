@@ -55,70 +55,68 @@ func GetMunicip() {
 		var wg sync.WaitGroup
 
 		wg.Add(1)
-		parsMunicip2019(discip, &wg)
+		go parsMunicip2019(discip, &wg)
 		wg.Wait()
 	}
 }
 
 func parsMunicip2019(discp string, wg *sync.WaitGroup) {
-	go func() {
-		defer wg.Done()
-		url := fmt.Sprintf("https://reg.olimpiada.ru/register/russia-olympiad-%s-2019-2/olympiad-protocol-static", discp)
-		res, err := http.Get(url)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer res.Body.Close()
-		if res.StatusCode != 200 {
-			log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
-		}
+	defer wg.Done()
+	url := fmt.Sprintf("https://reg.olimpiada.ru/register/russia-olympiad-%s-2019-2/olympiad-protocol-static", discp)
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != 200 {
+		log.Fatalf("status code error: %d %s", res.StatusCode, res.Status)
+	}
 
-		doc, err := goquery.NewDocumentFromReader(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-		table := doc.Find(".beauty_table").First()
+	table := doc.Find(".beauty_table").First()
 
-		headerMap := make(map[int]string)
-		table.Find("thead tr td").Each(func(i int, col *goquery.Selection) {
-			headerMap[i] = col.Text()
-		})
+	headerMap := make(map[int]string)
+	table.Find("thead tr td").Each(func(i int, col *goquery.Selection) {
+		headerMap[i] = col.Text()
+	})
 
-		table.Find("tbody tr").Each(func(i int, row *goquery.Selection) {
+	table.Find("tbody tr").Each(func(i int, row *goquery.Selection) {
 
-			line := make(map[int]string)
+		line := make(map[int]string)
 
-			row.Find("td").Each(func(i int, col *goquery.Selection) {
-				if i == 0 {
-					href, ok := col.Find("a").First().Attr("href")
-					if ok {
-						fileName, err := DownloadFile("./Files/Zip/", href)
-						defer os.Remove(fileName)
-						fileName = filepath.Join("./", fileName)
-						pdfFiles, err := zip.UnzipPDF(fileName, "./Files/PDFs/")
-						if err != nil {
-							fmt.Println(err)
-						}
-						if len(pdfFiles) != 0 {
-							key := pdf.GetKeyFromPdf(pdfFiles[0])
-							line[i] = key
-							defer os.Remove(pdfFiles[0])
-						}
-					} else {
-						line[i] = col.Text()
+		row.Find("td").Each(func(i int, col *goquery.Selection) {
+			if i == 0 {
+				href, ok := col.Find("a").First().Attr("href")
+				if ok {
+					fileName, err := DownloadFile("./Files/Zip/", href)
+					defer os.Remove(fileName)
+					fileName = filepath.Join("./", fileName)
+					pdfFiles, err := zip.UnzipPDF(fileName, "./Files/PDFs/")
+					if err != nil {
+						fmt.Println(err)
+					}
+					if len(pdfFiles) != 0 {
+						key := pdf.GetKeyFromPdf(pdfFiles[0])
+						line[i] = key
+						defer os.Remove(pdfFiles[0])
 					}
 				} else {
-					val := col.Text()
-					line[i] = val
+					line[i] = col.Text()
 				}
-			})
-			for i, field := range line {
-				fmt.Printf("%s - %s ", headerMap[i], field)
+			} else {
+				val := col.Text()
+				line[i] = val
 			}
-			fmt.Println("")
 		})
-	}()
+		for i, field := range line {
+			fmt.Printf("%s - %s ", headerMap[i], field)
+		}
+		fmt.Println("")
+	})
 
 }
 
