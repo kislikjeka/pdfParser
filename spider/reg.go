@@ -124,7 +124,7 @@ func parsMunicip2019(discp string, wg *sync.WaitGroup, rf *ResultFile) {
 						defer os.Remove(pdfFiles[0])
 					}
 				} else {
-					line = append(line, col.Text())
+					line = append(line, "")
 				}
 			} else {
 				line = append(line, col.Text())
