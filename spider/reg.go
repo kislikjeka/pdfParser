@@ -1,44 +1,53 @@
-package parser
+package spider
 
 import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/cavaliercoder/grab"
+	"github.com/tealeg/xlsx/v3"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"pdfTimur/pdf"
 	"pdfTimur/zip"
+	"reflect"
 	"sync"
 )
 
 var disciplines = [...]string{
 	"biol",
-	//"law",
-	//"phys",
-	//"econ",
-	//"astr",
-	//"litr",
-	//"bsvf",
-	//"fren",
-	//"ekol",
-	//"engl",
-	//"geog",
-	//"iikt",
-	//"amxk",
-	//"span",
-	//"hist",
-	//"ital",
-	//"chin",
-	//"math",
-	//"germ",
-	//"soci",
-	//"russ",
-	//"techhome",
-	//"techrobo",
-	//"pcul",
-	//"chem",
+	"law",
+	"phys",
+	"econ",
+	"astr",
+	"litr",
+	"bsvf",
+	"fren",
+	"ekol",
+	"engl",
+	"geog",
+	"iikt",
+	"amxk",
+	"span",
+	"hist",
+	"ital",
+	"chin",
+	"math",
+	"germ",
+	"soci",
+	"russ",
+	"techhome",
+	"techrobo",
+	"pcul",
+	"chem",
+}
+
+var pdfDiscips = []string{
+	"biol",
+	"law",
+	"phys",
+	"econ",
 }
 
 type Result struct {
@@ -51,18 +60,26 @@ type Result struct {
 }
 
 func GetMunicip() {
+	excelFile := xlsx.NewFile()
+	defer excelFile.Save("Result.xlsx")
+	var wg sync.WaitGroup
 	for _, discip := range disciplines {
-		var wg sync.WaitGroup
 
+		sheet, err := excelFile.AddSheet("Mun2019 - " + discip)
+		if err != nil {
+			fmt.Println(err)
+		}
+		rf := NewResultFile(sheet)
 		wg.Add(1)
-		go parsMunicip2019(discip, &wg)
-		wg.Wait()
+		go parsMunicip2019(discip, &wg, &rf)
 	}
+	wg.Wait()
 }
 
-func parsMunicip2019(discp string, wg *sync.WaitGroup) {
+func parsMunicip2019(discp string, wg *sync.WaitGroup, rf *ResultFile) {
 	defer wg.Done()
 	url := fmt.Sprintf("https://reg.olimpiada.ru/register/russia-olympiad-%s-2019-2/olympiad-protocol-static", discp)
+	fmt.Println("Process url:", url)
 	res, err := http.Get(url)
 	if err != nil {
 		log.Fatal(err)
@@ -79,19 +96,21 @@ func parsMunicip2019(discp string, wg *sync.WaitGroup) {
 
 	table := doc.Find(".beauty_table").First()
 
-	headerMap := make(map[int]string)
+	var headerMap []string
 	table.Find("thead tr td").Each(func(i int, col *goquery.Selection) {
-		headerMap[i] = col.Text()
+		headerMap = append(headerMap, col.Text())
 	})
+
+	rf.WriteLine(headerMap)
 
 	table.Find("tbody tr").Each(func(i int, row *goquery.Selection) {
 
-		line := make(map[int]string)
+		var line []string
 
 		row.Find("td").Each(func(i int, col *goquery.Selection) {
 			if i == 0 {
 				href, ok := col.Find("a").First().Attr("href")
-				if ok {
+				if exists, _ := in_array(discp, pdfDiscips); ok && exists {
 					fileName, err := DownloadFile("./Files/Zip/", href)
 					defer os.Remove(fileName)
 					fileName = filepath.Join("./", fileName)
@@ -101,21 +120,17 @@ func parsMunicip2019(discp string, wg *sync.WaitGroup) {
 					}
 					if len(pdfFiles) != 0 {
 						key := pdf.GetKeyFromPdf(pdfFiles[0])
-						line[i] = key
+						line = append(line, key)
 						defer os.Remove(pdfFiles[0])
 					}
 				} else {
-					line[i] = col.Text()
+					line = append(line, col.Text())
 				}
 			} else {
-				val := col.Text()
-				line[i] = val
+				line = append(line, col.Text())
 			}
 		})
-		for i, field := range line {
-			fmt.Printf("%s - %s ", headerMap[i], field)
-		}
-		fmt.Println("")
+		rf.WriteLine(line)
 	})
 
 }
@@ -128,4 +143,24 @@ func DownloadFile(filepath string, url string) (string, error) {
 	}
 
 	return resp.Filename, nil
+}
+
+func in_array(val interface{}, array interface{}) (exists bool, index int) {
+	exists = false
+	index = -1
+
+	switch reflect.TypeOf(array).Kind() {
+	case reflect.Slice:
+		s := reflect.ValueOf(array)
+
+		for i := 0; i < s.Len(); i++ {
+			if reflect.DeepEqual(val, s.Index(i).Interface()) == true {
+				index = i
+				exists = true
+				return
+			}
+		}
+	}
+
+	return
 }

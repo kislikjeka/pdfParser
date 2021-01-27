@@ -1,10 +1,10 @@
 package main
 
 import (
-	"pdfTimur/parser"
+	"pdfTimur/spider"
 )
 
 func main() {
-	parser.GetMunicip()
+	spider.GetMunicip()
 	return
 }

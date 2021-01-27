@@ -11,7 +11,7 @@ func GetKeyFromPdf(path string) string {
 	pdf.DebugOn = true
 	content, err := readPdf(path) // Read local pdf file
 	if err != nil {
-		panic(err)
+		return ""
 	}
 	items := strings.Split(content, "Ключ:")
 	if len(items) < 2 {
