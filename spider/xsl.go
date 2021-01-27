@@ -14,12 +14,12 @@ type ResultFile struct {
 //Записывает строку в файл с локом через Mutex
 func (rf *ResultFile) WriteLine(line []string) {
 	rf.mu.Lock()
+	defer rf.mu.Unlock()
 	row := rf.file.AddRow()
 	for _, field := range line {
 		cell := row.AddCell()
 		cell.Value = field
 	}
-	defer rf.mu.Unlock()
 }
 
 // Возвращает новый ResultFile
