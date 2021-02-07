@@ -1,10 +1,9 @@
 package main
 
-import (
-	"pdfTimur/spider"
-)
+import "pdfTimur/spider"
 
 func main() {
 	spider.GetMunicip()
+	//spider.GetRegional()
 	return
 }
